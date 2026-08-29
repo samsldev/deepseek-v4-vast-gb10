@@ -22,14 +22,22 @@ fi
 # All three paths live in Vast container storage and persist while the instance exists.
 mkdir -p /models /cache /hf-cache
 
-# Original recipe needs substantial free storage. Fail only at a dangerously low level;
-# 250-300+ GiB Vast container storage is recommended for comfortable operation.
 FREE_GIB="$(df -Pk /models | awk 'NR==2 {printf "%d", $4/1024/1024}')"
 log "Free container disk: ~${FREE_GIB} GiB"
-if [[ "$FREE_GIB" -lt 120 ]]; then
-  die "Only ~${FREE_GIB} GiB free. Recreate the Vast instance with a larger disk (recommended: 300 GiB)."
-elif [[ "$FREE_GIB" -lt 220 ]]; then
-  warn "Disk is tight. The recipe may fit via hardlinks, but 250-300+ GiB is safer."
+
+TP1_MANIFEST="/models/tp1/rank-sliced-tp1-manifest.json"
+
+if [[ -f "$TP1_MANIFEST" ]]; then
+  log "Existing TP1 checkpoint detected; skipping first-boot disk-space requirement."
+  if [[ "$FREE_GIB" -lt 30 ]]; then
+    warn "Only ~${FREE_GIB} GiB free. Runtime/cache space is getting tight."
+  fi
+else
+  if [[ "$FREE_GIB" -lt 120 ]]; then
+    die "Only ~${FREE_GIB} GiB free for first boot. Use at least 300 GiB container storage."
+  elif [[ "$FREE_GIB" -lt 220 ]]; then
+    warn "First-boot disk is tight, but continuing."
+  fi
 fi
 
 log "Mia profile: MAX_MODEL_LEN=${MAX_MODEL_LEN:-384000}, MAX_NUM_SEQS=${MAX_NUM_SEQS:-1}, GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION:-0.94}"
