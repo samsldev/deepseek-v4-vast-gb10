@@ -23,6 +23,14 @@ ADD https://raw.githubusercontent.com/MiaAI-Lab/DeepSeek-v4-Flash-One-DGX-Spark/
 
 COPY vast-entrypoint.sh /vast-entrypoint.sh
 
+# Remote ADD does not preserve the executable bit reliably. The Mia recipe
+# executes serve-ds4-flash.sh directly, so make all shell entrypoints executable.
+RUN chmod 0755 \
+    /vast-entrypoint.sh \
+    /patch-run-entrypoint.sh \
+    /opt/recipe/scripts/entrypoint.sh \
+    /opt/vllm/serve-ds4-flash.sh
+
 # Defaults mirror MiaAI-Lab/start.sh (ABLATE=0 path).
 ENV HF_HOME=/hf-cache \
     PORT=8888 \

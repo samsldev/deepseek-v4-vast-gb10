@@ -22,22 +22,22 @@ fi
 # All three paths live in Vast container storage and persist while the instance exists.
 mkdir -p /models /cache /hf-cache
 
+# Validate the ALLOCATED container-storage size, not just the remaining free
+# space. On a healthy first boot the recipe itself consumes ~180+ GB, so a
+# restart can legitimately have ~100 GB free on a 300 GB instance.
+TOTAL_GIB="$(df -Pk /models | awk 'NR==2 {printf "%d", $2/1024/1024}')"
 FREE_GIB="$(df -Pk /models | awk 'NR==2 {printf "%d", $4/1024/1024}')"
-log "Free container disk: ~${FREE_GIB} GiB"
+log "Container disk: ~${FREE_GIB} GiB free / ~${TOTAL_GIB} GiB total"
 
-TP1_MANIFEST="/models/tp1/rank-sliced-tp1-manifest.json"
-
-if [[ -f "$TP1_MANIFEST" ]]; then
-  log "Existing TP1 checkpoint detected; skipping first-boot disk-space requirement."
-  if [[ "$FREE_GIB" -lt 30 ]]; then
-    warn "Only ~${FREE_GIB} GiB free. Runtime/cache space is getting tight."
-  fi
-else
-  if [[ "$FREE_GIB" -lt 120 ]]; then
-    die "Only ~${FREE_GIB} GiB free for first boot. Use at least 300 GiB container storage."
-  elif [[ "$FREE_GIB" -lt 220 ]]; then
-    warn "First-boot disk is tight, but continuing."
-  fi
+# 250 GB-class allocation is the practical minimum for this image; 300-400 GB
+# is recommended. Remaining free space only needs runtime/cache headroom.
+if [[ "$TOTAL_GIB" -lt 230 ]]; then
+  die "Container disk allocation is only ~${TOTAL_GIB} GiB. Recreate with at least 250 GB (300-400 GB recommended)."
+fi
+if [[ "$FREE_GIB" -lt 30 ]]; then
+  die "Only ~${FREE_GIB} GiB free; not enough runtime/cache headroom."
+elif [[ "$FREE_GIB" -lt 60 ]]; then
+  warn "Only ~${FREE_GIB} GiB free. Runtime/cache headroom is getting tight."
 fi
 
 log "Mia profile: MAX_MODEL_LEN=${MAX_MODEL_LEN:-384000}, MAX_NUM_SEQS=${MAX_NUM_SEQS:-1}, GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION:-0.94}"
